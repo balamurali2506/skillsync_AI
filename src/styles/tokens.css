@@ -1,0 +1,170 @@
+/* ============================================================
+   SkillSync AI — Design Tokens · Phase 0
+   Single source of truth. No raw hex or ad-hoc durations
+   anywhere else in the codebase.
+   ============================================================ */
+
+@theme {
+  /* ── Brand: indigo → violet → fuchsia (use sparingly) ───── */
+  --color-brand-50:  #eef1fe;
+  --color-brand-100: #e0e5ff;
+  --color-brand-200: #c8cffc;
+  --color-brand-300: #a5abf9;
+  --color-brand-400: #8288f5;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-accent-violet:  #8b5cf6;
+  --color-accent-fuchsia: #d946ef;
+
+  /* ── Warm neutrals (stone-leaning, never pure gray) ──────── */
+  --color-neutral-50:  #fafaf8;
+  --color-neutral-100: #f4f4f0;
+  --color-neutral-200: #e7e6e0;
+  --color-neutral-300: #d4d2c8;
+  --color-neutral-400: #a5a294;
+  --color-neutral-500: #7b7868;
+  --color-neutral-600: #5b594d;
+  --color-neutral-700: #44423a;
+  --color-neutral-800: #2b2a24;
+  --color-neutral-900: #1b1a16;
+  --color-neutral-950: #100f0c;
+
+  /* ── Score bands: low → mid → high gradients ─────────────── */
+  --color-score-low-from:  #fda4af;
+  --color-score-low-to:    #e11d48;
+  --color-score-mid-from:  #fcd34d;
+  --color-score-mid-to:    #f59e0b;
+  --color-score-high-from: #34d399;
+  --color-score-high-to:   #a3e635;
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Intentional type scale: size + line-height + tracking each */
+  --text-display-2xl: 4rem;
+  --text-display-2xl--line-height: 1.02;
+  --text-display-2xl--letter-spacing: -0.03em;
+  --text-display-xl: 3rem;
+  --text-display-xl--line-height: 1.06;
+  --text-display-xl--letter-spacing: -0.025em;
+  --text-display-lg: 2.25rem;
+  --text-display-lg--line-height: 1.12;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-title-lg: 1.5rem;
+  --text-title-lg--line-height: 1.25;
+  --text-title-lg--letter-spacing: -0.015em;
+  --text-title: 1.125rem;
+  --text-title--line-height: 1.35;
+  --text-title--letter-spacing: -0.01em;
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.6;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.6;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+  --text-caption--letter-spacing: 0.01em;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.4;
+  --text-micro--letter-spacing: 0.06em;
+  --text-display-2xl--letter-spacing: 0.01em;
+  --text-display-xl--letter-spacing: 0.01em;
+  --text-display-lg--letter-spacing: 0.02em;
+
+  /* ── Elevation: brand-tinted shadows, not pure black ─────── */
+  --shadow-soft: 0 1px 2px rgb(27 26 22 / 0.05), 0 1px 6px rgb(27 26 22 / 0.04);
+  --shadow-card: 0 1px 2px rgb(27 26 22 / 0.05), 0 6px 20px rgb(79 70 229 / 0.07);
+  --shadow-lift: 0 2px 4px rgb(27 26 22 / 0.06), 0 14px 36px rgb(79 70 229 / 0.14);
+  --shadow-glow: 0 0 0 1px rgb(99 102 241 / 0.16), 0 10px 30px rgb(99 102 241 / 0.3);
+
+  /* ── Motion tokens (CSS side; JS side lives in lib/motion.js) */
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-flicker: flicker 2.6s ease-in-out infinite;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 2.8s ease-in-out infinite;
+
+    /* ── Typography — cyber system ─────────────────────────────
+     Orbitron      → logo, headings, big stat numbers
+     Chakra Petch  → all body text, buttons, nav, UI
+     Share Tech Mono → code, data readouts, HUD labels      */
+  --font-display: "Orbitron", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Share Tech Mono", ui-monospace, "SF Mono", monospace;
+}
+
+/* ── Keyframes ─────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  25%      { transform: scale(1.06) rotate(-2deg); opacity: 0.9; }
+  60%      { transform: scale(0.97) rotate(1.5deg); opacity: 0.98; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.75; transform: scale(1.04); }
+}
+
+/* ── Gradient utilities (brand identity, used sparingly) ───── */
+@utility bg-gradient-brand {
+  background-image: linear-gradient(135deg,
+    var(--color-brand-500) 0%,
+    var(--color-accent-violet) 50%,
+    var(--color-accent-fuchsia) 100%);
+}
+@utility bg-gradient-brand-soft {
+  background-image: linear-gradient(135deg,
+    rgb(99 102 241 / 0.10), rgb(217 70 239 / 0.08));
+}
+@utility bg-gradient-score-low {
+  background-image: linear-gradient(135deg, var(--color-score-low-from), var(--color-score-low-to));
+}
+@utility bg-gradient-score-mid {
+  background-image: linear-gradient(135deg, var(--color-score-mid-from), var(--color-score-mid-to));
+}
+@utility bg-gradient-score-high {
+  background-image: linear-gradient(135deg, var(--color-score-high-from), var(--color-score-high-to));
+}
+@utility text-gradient-brand {
+  background-image: linear-gradient(120deg,
+    var(--color-brand-500), var(--color-accent-violet), var(--color-accent-fuchsia));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Neon glow — pairs with text-gradient-brand for cyber signage */
+@utility text-glow-brand {
+  filter: drop-shadow(0 0 10px rgb(139 92 246 / 0.45))
+          drop-shadow(0 0 28px rgb(217 70 239 / 0.20));
+}
+/* ── Phase 3 polish utilities ─────────────────────────────── */
+@utility lift {
+  transition: transform var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-fast) var(--ease-out-quart);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+@utility press {
+  transition: transform var(--duration-fast) var(--ease-out-quart);
+  &:active { transform: scale(0.97); }
+}

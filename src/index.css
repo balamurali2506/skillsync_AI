@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--color-neutral-200);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-neutral-100);
+    color: var(--color-neutral-900);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+
+  ::selection {
+    background-color: rgb(99 102 241 / 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+}
+
+/* Skeleton shimmer — used for every loading state (Phase 1+) */
+.skeleton {
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg,
+    var(--color-neutral-200) 25%,
+    var(--color-neutral-100) 40%,
+    var(--color-neutral-200) 60%);
+  background-size: 300% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Global reduced-motion fallback (Framer Motion handles its own via MotionConfig) */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Phase 3 — smooth focus transitions for form controls */
+@layer base {
+  input, textarea, select {
+    transition:
+      border-color var(--duration-fast) var(--ease-out-quart),
+      box-shadow var(--duration-fast) var(--ease-out-quart),
+      background-color var(--duration-fast) var(--ease-out-quart);
+  }
+  input:focus, textarea:focus, select:focus { outline: none; }
+}

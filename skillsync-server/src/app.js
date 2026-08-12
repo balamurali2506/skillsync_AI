@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,7 +6,10 @@ import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
 import problemsRoutes from './routes/problems.js';
 import resumesRoutes from './routes/resumes.js';
+import chatRoutes from './routes/chat.js';
+import interviewsRoutes from './routes/interviews.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 export const app = express();
 
@@ -28,6 +30,9 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/problems', problemsRoutes);
 app.use('/api/resumes', resumesRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/interviews', interviewsRoutes);  // adaptive voice interview
+app.use('/api/dashboard', dashboardRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);

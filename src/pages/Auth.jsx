@@ -5,12 +5,11 @@ import { toast } from 'sonner';
 import { Mail, Lock, User, ArrowRight, Loader2, GraduationCap, Briefcase, Calendar, Code2 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import Button from '@/components/ui/Button';
+import { api } from '@/lib/api';
 
-const TARGET_ROLES = [
-  'Software Engineer', 'Data Scientist', 'Product Manager', 'Designer', 'DevOps', 'Other',
-];
+const TARGET_ROLES = ['Software Engineer', 'Data Scientist', 'Product Manager', 'Designer', 'DevOps', 'Other'];
 const EXP_LEVELS = ['Fresher', 'Intern', '1-2 years', '3-5 years', '5+ years'];
-const GRAD_YEARS = Array.from({ length: 12 }, (_, i) => 2024 + i); // 2024 → 2035
+const GRAD_YEARS = Array.from({ length: 12 }, (_, i) => 2024 + i);
 
 function Field({ icon: Icon, label, children, required }) {
   return (
@@ -28,19 +27,15 @@ function Field({ icon: Icon, label, children, required }) {
 
 const inputCls = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 py-3 text-body text-white placeholder:text-neutral-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25';
 
-// 👇 CHANGE 1: Accept onLogin prop
 export default function Auth({ onLogin }) {
   const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [loading, setLoading] = useState(false);
   const isRegister = mode === 'register';
 
-  // Core auth
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  // Profile fields (register only)
   const [targetRole, setTargetRole] = useState('Software Engineer');
   const [university, setUniversity] = useState('');
   const [graduationYear, setGraduationYear] = useState(2026);
@@ -56,28 +51,13 @@ export default function Auth({ onLogin }) {
         ? { name, email, password, targetRole, university, graduationYear: Number(graduationYear), experienceLevel }
         : { email, password };
 
-      const { data } = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw { response: { data: json, status: r.status } };
-        return { data: json };
-      });
+      const { data } = await api.post(endpoint, payload);
 
-      localStorage.setItem('ss_token', data.token);
-      localStorage.setItem('ss_user', JSON.stringify(data.user));
-      
-      // 👇 CHANGE 2: Trigger the global state update in App.jsx
-      onLogin(data.token, data.user); 
-      
+      onLogin(data.token, data.user);
       toast.success(isRegister ? 'Account created — welcome to SKILLSYNC_AI!' : 'Welcome back!');
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.error
-                || err.response?.data?.errors?.[0]?.msg
-                || 'Something went wrong';
+      const msg = err.response?.data?.error || err.response?.data?.errors?.[0]?.msg || 'Something went wrong';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -85,7 +65,7 @@ export default function Auth({ onLogin }) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 px-6 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 px-4 py-8 sm:px-6 sm:py-12">
       {/* Animated gradient mesh */}
       <div className="pointer-events-none absolute inset-0">
         <motion.div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-600/30 blur-3xl"
@@ -100,9 +80,10 @@ export default function Auth({ onLogin }) {
 
       <motion.div
         key={mode}
-        initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        initial={{ opacity: 0, y: 24, scale: 0.98 }} 
+        animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className={`relative w-full rounded-3xl border border-neutral-800 bg-neutral-900/70 p-8 shadow-glow backdrop-blur-xl ${isRegister ? 'max-w-2xl' : 'max-w-md'}`}
+        className={`relative w-full rounded-3xl border border-neutral-800 bg-neutral-900/70 p-6 sm:p-8 shadow-glow backdrop-blur-xl ${isRegister ? 'max-w-2xl' : 'max-w-md'}`}
       >
         <div className="flex flex-col items-center text-center">
           <Logo size="md" glow theme="dark" />
@@ -125,7 +106,6 @@ export default function Auth({ onLogin }) {
         </div>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          {/* ── Core auth fields ── */}
           <div className={isRegister ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : 'space-y-4'}>
             {isRegister && (
               <Field icon={User} label="Full Name" required>
@@ -143,17 +123,16 @@ export default function Auth({ onLogin }) {
             </Field>
           </div>
 
-          {/* ── Profile fields (register only) ── */}
           {isRegister && (
             <motion.div
               initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-              className="space-y-4 rounded-2xl border border-neutral-800 bg-neutral-950/50 p-5"
+              className="space-y-4 rounded-2xl border border-neutral-800 bg-neutral-950/50 p-4 sm:p-5"
             >
               <p className="text-micro font-semibold uppercase tracking-widest text-brand-400">
                 Profile · powers your AI personalization
               </p>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 <Field icon={Briefcase} label="Target Role" required>
                   <select value={targetRole} onChange={(e) => setTargetRole(e.target.value)} required
                     className={`${inputCls} pl-10 pr-4 appearance-none`}>
@@ -166,19 +145,21 @@ export default function Auth({ onLogin }) {
                     className={`${inputCls} pl-10 pr-4`} />
                 </Field>
 
-                <Field icon={Calendar} label="Graduation Year">
-                  <select value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)}
-                    className={`${inputCls} pl-10 pr-4 appearance-none`}>
-                    {GRAD_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field icon={Calendar} label="Graduation Year">
+                    <select value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)}
+                      className={`${inputCls} pl-10 pr-4 appearance-none`}>
+                      {GRAD_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </Field>
 
-                <Field icon={Code2} label="Experience Level" required>
-                  <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} required
-                    className={`${inputCls} pl-10 pr-4 appearance-none`}>
-                    {EXP_LEVELS.map((l) => <option key={l}>{l}</option>)}
-                  </select>
-                </Field>
+                  <Field icon={Code2} label="Experience Level" required>
+                    <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} required
+                      className={`${inputCls} pl-10 pr-4 appearance-none`}>
+                      {EXP_LEVELS.map((l) => <option key={l}>{l}</option>)}
+                    </select>
+                  </Field>
+                </div>
               </div>
             </motion.div>
           )}

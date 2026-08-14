@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
 import PageTransition from '@/components/PageTransition';
+import CommandPalette from '@/components/CommandPalette'; // <-- ADD THIS
 
 export default function AppShell({ user, onLogout }) {
   const location = useLocation();
@@ -11,6 +12,9 @@ export default function AppShell({ user, onLogout }) {
 
   return (
     <div className="flex min-h-screen bg-neutral-100">
+      {/* Global Command Palette */}
+      <CommandPalette /> 
+      
       <Sidebar 
         user={user} 
         isOpen={sidebarOpen}

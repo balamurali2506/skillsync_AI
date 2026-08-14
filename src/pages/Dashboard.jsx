@@ -72,7 +72,7 @@ export default function Dashboard() {
       <motion.div variants={fadeUp} className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-neutral-900">
-            {greeting}, {user.name.split(' ')[0]} 👋
+            {greeting}, {user.name.split(' ')[0]} 
           </h1>
           <p className="mt-2 text-body text-neutral-600">
             You're building toward becoming a <span className="font-bold text-brand-600">{user.targetRole || 'Software Engineer'}</span>.

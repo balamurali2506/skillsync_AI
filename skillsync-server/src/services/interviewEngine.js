@@ -11,7 +11,6 @@ const safeParse = (str) => {
   }
 };
 
-// Summarize context to keep token usage low and fast
 export async function buildContext(userId, targetRole, jobDescription) {
   const resume = await Resume.findOne({ user: userId }).sort({ createdAt: -1 });
   let resumeContext = "No resume provided.";
@@ -24,11 +23,11 @@ export async function buildContext(userId, targetRole, jobDescription) {
 export async function generateOpening(config, resumeContext) {
   if (!groq) return "Hello. I am your AI interviewer. Let's begin. Tell me about yourself.";
   
-  const prompt = `You are a professional, calm, and neutral AI interviewer. 
+  const prompt = `You are a strict, professional, and neutral AI interviewer. 
   Role: ${config.targetRole}. Company: ${config.company || 'Unknown'}. Type: ${config.interviewType}.
   Resume Context: ${resumeContext}
   
-  Generate a brief, professional opening statement (max 3 sentences). Introduce yourself, state the interview type, and ask the first question (usually "Tell me about yourself" or a resume-specific icebreaker). 
+  Generate a brief, professional opening statement (max 3 sentences). Introduce yourself, state the interview type, and ask the first question. 
   Return JSON: { "spokenText": "..." }`;
 
   const res = await groq.chat.completions.create({
@@ -39,20 +38,22 @@ export async function generateOpening(config, resumeContext) {
   return safeParse(res.choices[0].message.content)?.spokenText || "Welcome. Let's begin with your background.";
 }
 
+// THE STRICT ENGINE
 export async function processTurn(interview, candidateAnswer) {
   if (!groq) return mockFallback();
 
-  // Keep only last 4 messages to save tokens + speed
   const recentHistory = interview.messages.slice(-4).map(m => `${m.speaker}: ${m.text}`).join('\n');
   
-  const systemPrompt = `You are an expert technical interviewer. You are professional, calm, and slightly challenging.
-  RULES:
-  1. Listen to the candidate's answer. Evaluate it internally.
-  2. Decide action: "FOLLOW_UP" (probe deeper into current claim), "NEXT_QUESTION" (move to new topic), or "CONCLUDE" (end interview).
-  3. If candidate makes a vague claim, ask "HOW" or "WHY" or ask for an "EXAMPLE".
-  4. If candidate says "I don't know", give a small hint or move on. Do not give the answer.
-  5. Never say "Great answer!" or use excessive encouragement. Be neutral.
-  6. Do not reveal your scoring.
+  const systemPrompt = `You are a strict, professional, and highly critical technical interviewer. You do NOT give participation trophies.
+  
+  STRICT SCORING RULES:
+  1. If the candidate's answer is extremely short (under 15 words), vague, irrelevant, or just "I don't know", you MUST give VERY LOW scores (0-30 out of 100) and provide harsh, direct feedback.
+  2. Heavily penalize the use of filler words like "uh", "um", "ahh", "mmm", "hmm", "like", "basically", "you know". If they use them, drop the communication and confidence scores significantly.
+  3. Listen to the candidate's answer. Evaluate it internally.
+  4. Decide action: "FOLLOW_UP" (probe deeper), "NEXT_QUESTION" (move on), or "CONCLUDE" (end if enough turns passed).
+  5. If candidate makes a vague claim, ask "HOW" or "WHY" or ask for an "EXAMPLE".
+  6. Never say "Great answer!" or use excessive encouragement. Be neutral and slightly challenging.
+  7. Do not reveal your scoring.
   
   INTERVIEW CONFIG:
   Role: ${interview.targetRole} | Type: ${interview.interviewType} | Difficulty: ${interview.difficulty}
@@ -72,9 +73,9 @@ export async function processTurn(interview, candidateAnswer) {
     "evaluation": { "technical": 0-100, "communication": 0-100, "confidence": 0-100, "relevance": 0-100, "depth": 0-100 },
     "action": "FOLLOW_UP" | "NEXT_QUESTION" | "CONCLUDE",
     "followUpType": "WHY" | "HOW" | "EXAMPLE" | "TRADEOFF" | null,
-    "spokenResponse": "The exact text you will speak to the candidate.",
+    "spokenResponse": "The exact text you will speak. If their answer was terrible, professionally call them out (e.g., 'That was far too brief and lacked any technical depth. Can you elaborate?').",
     "topic": "current topic being discussed",
-    "internalFeedback": "Brief note on what was good/bad for the final report."
+    "internalFeedback": "Harsh, direct note on what was bad. e.g. 'Answer was only 5 words. Heavy use of filler words. Zero technical depth.'"
   }`;
 
   const res = await groq.chat.completions.create({
@@ -87,13 +88,16 @@ export async function processTurn(interview, candidateAnswer) {
 }
 
 export async function generateFinalReport(interview) {
-  if (!groq) return { summary: "Good effort.", strengths: ["Participation"], weaknesses: ["Practice more"], recommendations: ["Keep practicing."] };
+  if (!groq) return { 
+    overallScore: 20, categoryScores: { technical: 20, communication: 15, confidence: 20, problemSolving: 20, behavioral: 20, roleKnowledge: 20 },
+    strengths: ["None demonstrated"], weaknesses: ["Lack of effort", "Extremely short answers"], skillGaps: [], recommendations: ["Practice giving complete answers"], aiCoachSummary: "Performance was extremely poor." 
+  };
 
   const transcriptSummary = interview.transcript.map((t, i) => 
-    `Q${i+1}: ${t.question}\nA: ${t.answer}\nScore: ${t.evaluation?.overall || 0}`
+    `Q${i+1}: ${t.question}\nA: ${t.answer}\nScores: Tech ${t.evaluation?.technical || 0}, Comm ${t.evaluation?.communication || 0}, Conf ${t.evaluation?.confidence || 0}`
   ).join('\n\n');
 
-  const prompt = `Generate a final interview evaluation report based on this transcript.
+  const prompt = `Generate a strict, professional final interview evaluation report based on this transcript. Do not sugarcoat poor performance.
   Target Role: ${interview.targetRole}
   
   TRANSCRIPT:
@@ -103,11 +107,11 @@ export async function generateFinalReport(interview) {
   {
     "overallScore": 0-100,
     "categoryScores": { "technical": 0-100, "communication": 0-100, "confidence": 0-100, "problemSolving": 0-100, "behavioral": 0-100, "roleKnowledge": 0-100 },
-    "strengths": ["array of 3 specific strengths"],
-    "weaknesses": ["array of 3 specific weaknesses"],
+    "strengths": ["array of 3 specific strengths, if any. If performance was poor, state 'None demonstrated'"],
+    "weaknesses": ["array of 3 specific weaknesses, e.g., 'Overuse of filler words', 'Lack of technical depth'"],
     "skillGaps": ["array of missing skills detected during interview"],
-    "recommendations": ["array of 3 actionable practice items"],
-    "aiCoachSummary": "A 3-sentence professional summary of their performance and what to focus on next."
+    "recommendations": ["array of 3 harsh but actionable practice items"],
+    "aiCoachSummary": "A 3-sentence professional, direct summary of their performance. If they performed poorly, tell them they are not interview-ready and need significant practice."
   }`;
 
   const res = await groq.chat.completions.create({
@@ -121,9 +125,9 @@ export async function generateFinalReport(interview) {
 
 function mockFallback() {
   return {
-    evaluation: { technical: 70, communication: 75, confidence: 70, relevance: 80, depth: 65 },
-    action: "NEXT_QUESTION", topic: "General Experience",
-    spokenResponse: "I see. Let's move on to another topic. Can you describe a challenging project you've worked on?",
-    internalFeedback: "Mock fallback used."
+    evaluation: { technical: 20, communication: 15, confidence: 20, relevance: 30, depth: 10 },
+    action: "FOLLOW_UP", topic: "General Experience",
+    spokenResponse: "That answer was far too brief and lacked any technical depth. Can you elaborate on what you actually did?",
+    internalFeedback: "Mock fallback: Answer was too short."
   };
 }

@@ -1,4 +1,4 @@
-// Advanced Voice Pipeline with VAD (Voice Activity Detection)
+// Modular speech services — provider can be swapped later.
 
 export function speak(text, { rate = 1, onStart, onEnd, interruptRef } = {}) {
   return new Promise((resolve) => {
@@ -36,63 +36,75 @@ export function stopSpeaking() {
 
 export const sttSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-export function createAdvancedListener({ onResult, onSpeechStart, onSpeechEnd, onError, silenceMs = 2500 }) {
+// Continuous listener with auto-restart + silence detection
+export function createListener({ onResult, onSilence, onError, onIdle, silenceMs = 2500, idleMs = 15000 }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
 
   let active = false, rec = null, finalText = '';
-  let silenceTimer = null;
-  let audioContext, analyser, microphone, dataArray, vadLoop;
+  let silenceTimer = null, idleTimer = null;
 
-  const startVAD = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioContext.createAnalyser();
-      microphone = audioContext.createMediaStreamSource(stream);
-      analyser.fftSize = 512;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      microphone.connect(analyser);
-
-      vadLoop = setInterval(() => {
-        analyser.getByteFrequencyData(dataArray);
-        // Calculate average volume (0-255)
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        
-        if (avg > 15) { // Threshold for "speaking"
-          onSpeechStart?.();
-          clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => onSpeechEnd?.(finalText.trim()), silenceMs);
-        }
-      }, 100);
-    } catch (e) { console.warn('VAD failed', e); }
-  };
-
-  const stopVAD = () => {
-    clearInterval(vadLoop);
+  const armSilence = () => {
     clearTimeout(silenceTimer);
-    if (audioContext) audioContext.close();
+    silenceTimer = setTimeout(() => { 
+      if (finalText.trim()) {
+        active = false; // Stop listening after silence submission
+        try { rec?.stop(); } catch {}
+        onSilence?.(finalText.trim()); 
+      }
+    }, silenceMs);
   };
 
   const spawn = () => {
     rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+    rec.continuous = true; 
+    rec.interimResults = true; 
+    rec.lang = 'en-US';
+    
     rec.onresult = (e) => {
+      clearTimeout(idleTimer);
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) finalText += `${t} `; else interim += t;
       }
       onResult?.(finalText, interim);
+      armSilence();
     };
-    rec.onerror = (e) => { if (e.error !== 'no-speech' && e.error !== 'aborted') onError?.(e.error); };
-    rec.onend = () => { if (active) setTimeout(spawn, 100); };
-    try { rec.start(); } catch {}
+    
+    rec.onerror = (e) => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      if (e.error === 'not-allowed') {
+         active = false;
+         onError?.(e.error);
+         return;
+      }
+      onError?.(e.error);
+    };
+    
+    rec.onend = () => { 
+      // Auto-restart if browser killed the session but we are still actively listening
+      if (active) setTimeout(() => { if (active) spawn(); }, 100); 
+    };
+    
+    try { rec.start(); } catch (e) { console.warn('STT start error', e); }
   };
 
   return {
-    start() { active = true; finalText = ''; spawn(); startVAD(); },
-    stop() { active = false; rec?.stop(); stopVAD(); },
-    getText: () => finalText.trim()
+    start() {
+      active = true; 
+      finalText = '';
+      spawn();
+      idleTimer = setTimeout(() => {
+         if (active && !finalText.trim()) onIdle?.();
+      }, idleMs);
+    },
+    stop() {
+      active = false;
+      clearTimeout(silenceTimer); 
+      clearTimeout(idleTimer);
+      try { rec?.stop(); } catch {}
+    },
+    getText: () => finalText.trim(),
   };
 }

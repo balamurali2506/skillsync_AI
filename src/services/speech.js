@@ -1,56 +1,38 @@
-// Advanced Voice Pipeline with VAD & Memory Fix
-
 export function speak(text, { rate = 1, onStart, onEnd, interruptRef } = {}) {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) { onEnd?.(); return resolve(); }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = rate;
-    
     const voices = window.speechSynthesis.getVoices();
     const proVoice = voices.find(v => /google|zira|samantha|aria|jenny/i.test(v.name) && v.lang.startsWith('en')) || voices.find(v => v.lang.startsWith('en'));
     if (proVoice) u.voice = proVoice;
-
     u.onstart = () => onStart?.();
-    
     const checkInterrupt = setInterval(() => {
-      if (interruptRef?.current) {
-        window.speechSynthesis.cancel();
-        clearInterval(checkInterrupt);
-        onEnd?.();
-        resolve();
-      }
+      if (interruptRef?.current) { window.speechSynthesis.cancel(); clearInterval(checkInterrupt); onEnd?.(); resolve(); }
     }, 100);
-
     u.onend = () => { clearInterval(checkInterrupt); onEnd?.(); resolve(); };
     u.onerror = () => { clearInterval(checkInterrupt); onEnd?.(); resolve(); };
-    
     window.speechSynthesis.speak(u);
   });
 }
 
-export function stopSpeaking() { 
-  window.speechSynthesis?.cancel(); 
-}
-
+export function stopSpeaking() { window.speechSynthesis?.cancel(); }
 export const sttSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-// FIXED: Continuous listener with duplication prevention
 export function createListener({ onResult, onSilence, onError, onIdle, silenceMs = 2500, idleMs = 15000 }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
 
   let active = false, rec = null;
-  let committedText = ''; // Text safely saved from previous recognizer sessions
-  let currentSessionFinals = ''; // Text finalized in the current active session
-  let currentInterim = '';
-  
+  let committedText = ''; // Strictly holds finalized text across browser restarts
+  let interimText = '';
   let silenceTimer = null, idleTimer = null;
 
   const armSilence = () => {
     clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => { 
-      const fullText = (committedText + currentSessionFinals).trim();
+      const fullText = committedText.trim();
       if (fullText) {
         active = false; 
         try { rec?.stop(); } catch {}
@@ -65,42 +47,35 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
     rec.interimResults = true; 
     rec.lang = 'en-US';
     
-    // Reset session finals when spawning a new recognizer to prevent duplication
-    currentSessionFinals = '';
-    currentInterim = '';
-    
     rec.onresult = (e) => {
       clearTimeout(idleTimer);
-      let sessionFinals = '';
-      let interim = '';
-      // Rebuild from scratch to avoid appending duplicates
-      for (let i = 0; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) sessionFinals += `${t} `;
-        else interim += t;
-      }
-      currentSessionFinals = sessionFinals;
-      currentInterim = interim;
+      let newFinal = '';
+      interimText = '';
       
-      onResult?.(committedText + currentSessionFinals, currentInterim);
+      // CRITICAL FIX: Only read from resultIndex to prevent reading old browser history
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          newFinal += e.results[i][0].transcript;
+        } else {
+          interimText += e.results[i][0].transcript;
+        }
+      }
+      
+      if (newFinal) {
+        committedText += newFinal + ' ';
+      }
+      
+      onResult?.(committedText.trim(), interimText.trim());
       armSilence();
     };
     
     rec.onerror = (e) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
-      if (e.error === 'not-allowed') {
-         active = false;
-         onError?.(e.error);
-         return;
-      }
+      if (e.error === 'not-allowed') { active = false; onError?.(e.error); return; }
       onError?.(e.error);
     };
     
     rec.onend = () => { 
-      // COMMIT the finals from this session before the browser restarts the recognizer
-      committedText += currentSessionFinals;
-      currentSessionFinals = '';
-      
       if (active) setTimeout(() => { if (active) spawn(); }, 100); 
     };
     
@@ -111,11 +86,9 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
     start() {
       active = true; 
       committedText = '';
-      currentSessionFinals = '';
+      interimText = '';
       spawn();
-      idleTimer = setTimeout(() => {
-         if (active && !committedText && !currentSessionFinals) onIdle?.();
-      }, idleMs);
+      idleTimer = setTimeout(() => { if (active && !committedText) onIdle?.(); }, idleMs);
     },
     stop() {
       active = false;
@@ -123,6 +96,6 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
       clearTimeout(idleTimer);
       try { rec?.stop(); } catch {}
     },
-    getText: () => (committedText + currentSessionFinals).trim(),
+    getText: () => committedText.trim(),
   };
 }

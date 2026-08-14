@@ -26,14 +26,17 @@ export async function respond(req, res, next) {
     if (!interview || interview.status !== 'active') return res.status(400).json({ error: 'Interview not active' });
 
     const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: 'Empty answer' });
+
     interview.messages.push({ speaker: 'candidate', text });
     interview.turnCount += 1;
 
+    // Get AI response (guaranteed to return a valid object now)
     const aiResponse = await processTurn(interview, text);
 
     interview.messages.push({ 
-      speaker: 'ai', text: aiResponse.spokenResponse, 
-      action: aiResponse.action, topic: aiResponse.topic 
+      speaker: 'ai', text: aiResponse.spokenResponse || "Let's move on.", 
+      action: aiResponse.action || 'NEXT_QUESTION', topic: aiResponse.topic || 'General' 
     });
     
     if (aiResponse.topic) interview.currentTopic = aiResponse.topic;
@@ -41,23 +44,26 @@ export async function respond(req, res, next) {
       interview.topicsCovered.push(aiResponse.topic);
     }
 
-    // Save to transcript for final review
+    // Safely save to transcript
     interview.transcript.push({
       question: interview.messages[interview.messages.length - 2]?.text || '',
       answer: text,
-      evaluation: aiResponse.evaluation,
-      feedback: aiResponse.internalFeedback
+      evaluation: aiResponse.evaluation || { technical: 50, communication: 50, confidence: 50, relevance: 50, depth: 50 },
+      feedback: aiResponse.internalFeedback || ''
     });
 
     await interview.save();
 
     res.json({
-      spokenText: aiResponse.spokenResponse,
-      action: aiResponse.action,
-      topic: aiResponse.topic,
+      spokenText: aiResponse.spokenResponse || "Let's move on.",
+      action: aiResponse.action || 'NEXT_QUESTION',
+      topic: aiResponse.topic || 'General',
       turnCount: interview.turnCount
     });
-  } catch (err) { next(err); }
+  } catch (err) { 
+    console.error('Respond error:', err);
+    next(err); 
+  }
 }
 
 export async function end(req, res, next) {

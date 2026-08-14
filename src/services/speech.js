@@ -1,4 +1,4 @@
-// Modular speech services — provider can be swapped later.
+// Advanced Voice Pipeline with VAD & Memory Fix
 
 export function speak(text, { rate = 1, onStart, onEnd, interruptRef } = {}) {
   return new Promise((resolve) => {
@@ -13,7 +13,6 @@ export function speak(text, { rate = 1, onStart, onEnd, interruptRef } = {}) {
 
     u.onstart = () => onStart?.();
     
-    // Check for interruption every 100ms
     const checkInterrupt = setInterval(() => {
       if (interruptRef?.current) {
         window.speechSynthesis.cancel();
@@ -36,21 +35,26 @@ export function stopSpeaking() {
 
 export const sttSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-// Continuous listener with auto-restart + silence detection
+// FIXED: Continuous listener with duplication prevention
 export function createListener({ onResult, onSilence, onError, onIdle, silenceMs = 2500, idleMs = 15000 }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
 
-  let active = false, rec = null, finalText = '';
+  let active = false, rec = null;
+  let committedText = ''; // Text safely saved from previous recognizer sessions
+  let currentSessionFinals = ''; // Text finalized in the current active session
+  let currentInterim = '';
+  
   let silenceTimer = null, idleTimer = null;
 
   const armSilence = () => {
     clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => { 
-      if (finalText.trim()) {
-        active = false; // Stop listening after silence submission
+      const fullText = (committedText + currentSessionFinals).trim();
+      if (fullText) {
+        active = false; 
         try { rec?.stop(); } catch {}
-        onSilence?.(finalText.trim()); 
+        onSilence?.(fullText); 
       }
     }, silenceMs);
   };
@@ -61,14 +65,24 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
     rec.interimResults = true; 
     rec.lang = 'en-US';
     
+    // Reset session finals when spawning a new recognizer to prevent duplication
+    currentSessionFinals = '';
+    currentInterim = '';
+    
     rec.onresult = (e) => {
       clearTimeout(idleTimer);
+      let sessionFinals = '';
       let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // Rebuild from scratch to avoid appending duplicates
+      for (let i = 0; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += `${t} `; else interim += t;
+        if (e.results[i].isFinal) sessionFinals += `${t} `;
+        else interim += t;
       }
-      onResult?.(finalText, interim);
+      currentSessionFinals = sessionFinals;
+      currentInterim = interim;
+      
+      onResult?.(committedText + currentSessionFinals, currentInterim);
       armSilence();
     };
     
@@ -83,7 +97,10 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
     };
     
     rec.onend = () => { 
-      // Auto-restart if browser killed the session but we are still actively listening
+      // COMMIT the finals from this session before the browser restarts the recognizer
+      committedText += currentSessionFinals;
+      currentSessionFinals = '';
+      
       if (active) setTimeout(() => { if (active) spawn(); }, 100); 
     };
     
@@ -93,10 +110,11 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
   return {
     start() {
       active = true; 
-      finalText = '';
+      committedText = '';
+      currentSessionFinals = '';
       spawn();
       idleTimer = setTimeout(() => {
-         if (active && !finalText.trim()) onIdle?.();
+         if (active && !committedText && !currentSessionFinals) onIdle?.();
       }, idleMs);
     },
     stop() {
@@ -105,6 +123,6 @@ export function createListener({ onResult, onSilence, onError, onIdle, silenceMs
       clearTimeout(idleTimer);
       try { rec?.stop(); } catch {}
     },
-    getText: () => finalText.trim(),
+    getText: () => (committedText + currentSessionFinals).trim(),
   };
 }

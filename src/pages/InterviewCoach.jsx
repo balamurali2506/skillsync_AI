@@ -8,7 +8,6 @@ import { cn } from '@/lib/cn';
 import { speak, stopSpeaking, sttSupported, createListener } from '@/services/speech';
 
 const TYPES = ['Mixed', 'Technical', 'HR', 'Behavioral', 'Resume-Based', 'Job-Specific'];
-// Updated Fillers List
 const FILLERS = ['um', 'uh', 'ahh', 'mmm', 'hmm', 'like', 'basically', 'actually', 'you know', 'kind of', 'sort of'];
 
 function Waveform({ active, color = 'bg-brand-400', reduce }) {
@@ -49,8 +48,6 @@ export default function InterviewCoach() {
     questionCount: 6, jobDescription: '', focus: '',
   });
   const [resumeInfo, setResumeInfo] = useState(null);
-  
-  // The typing box state
   const [typedAnswer, setTypedAnswer] = useState('');
 
   const [micOK, setMicOK] = useState(false);
@@ -148,7 +145,7 @@ export default function InterviewCoach() {
     setCurrent(q);
     setQIndex(index);
     setTranscript('');
-    setTypedAnswer(''); // Clear typing box for new question
+    setTypedAnswer('');
     setLiveStage('ai-speaking');
     speak(opening ? `Hello! I'm your AI interviewer. This is a simulated interview. Feel free to ask me to repeat any question. Let's begin. ${q.speakText || q.question}` : (q.speakText || q.question), {
       onStart: () => setSpeaking(true),
@@ -177,19 +174,27 @@ export default function InterviewCoach() {
     setLiveStage('listening');
   };
 
-  // UPDATED: Accepts text from Voice OR typedAnswer from Keyboard
-  const submitAnswer = async (text) => {
-    const answerText = (text || typedAnswer || transcript).trim();
+  // NEW: Stops the mic but keeps the text on screen for review
+  const stopListening = () => {
+    listenerRef.current?.stop();
+    setLiveStage('waiting');
+  };
+
+  const submitAnswer = async (textOverride) => {
+    // Stop mic if it's currently listening
+    if (liveStage === 'listening') {
+      listenerRef.current?.stop();
+    }
+    
+    const answerText = (textOverride || typedAnswer || transcript).trim();
     if (!answerText) { toast.error('Please speak or type an answer.'); setLiveStage('waiting'); return; }
     
-    listenerRef.current?.stop();
     stopSpeaking();
     setLiveStage('processing');
     
     try {
       const { data } = await api.post(`/interviews/${interviewId}/respond`, { text: answerText });
       
-      // Clear inputs for the next turn
       setTypedAnswer(''); 
       setTranscript('');
       
@@ -205,10 +210,15 @@ export default function InterviewCoach() {
     }
   };
 
+  // BULLETPROOF CLEANUP on End
   const finishInterview = async () => {
     setLiveStage('processing');
+    
+    // Aggressively kill everything
     stopSpeaking();
     listenerRef.current?.stop();
+    window.speechSynthesis?.cancel(); 
+    
     try {
       const { data } = await api.post(`/interviews/${interviewId}/end`);
       setReport(data);
@@ -221,6 +231,11 @@ export default function InterviewCoach() {
   };
 
   const endInterview = () => {
+    // Kill background audio/mic immediately when End is clicked
+    stopSpeaking();
+    listenerRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    
     if (interviewId) finishInterview();
     else setMode('setup');
   };
@@ -485,17 +500,28 @@ export default function InterviewCoach() {
         </div>
       </div>
 
+      {/* Bottom Controls */}
       <div className="flex items-center justify-center gap-4 sm:gap-6 border-t border-neutral-800 px-6 py-5">
         <button onClick={() => current && speak(current.speakText || current.question, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) })}
           className="press rounded-full border border-neutral-700 p-3 text-neutral-300 hover:text-white" title="Repeat question"><Repeat size={20} /></button>
         
+        {/* Mic Toggle: Starts/Stops recording, but doesn't submit yet */}
         <button
-          onClick={() => (liveStage === 'listening' ? submitAnswer(listenerRef.current?.getText()) : startListening())}
+          onClick={() => (liveStage === 'listening' ? stopListening() : startListening())}
           disabled={liveStage === 'processing' || liveStage === 'ai-speaking'}
-          className={cn('press flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full text-white shadow-glow transition-colors disabled:opacity-40',
-            liveStage === 'listening' ? 'bg-rose-600' : 'bg-gradient-brand')}
-          title={liveStage === 'listening' ? 'Finish answer' : 'Start answering'}>
-          {liveStage === 'listening' ? <MicOff size={28} /> : <Mic size={28} />}
+          className={cn('press flex h-14 w-14 items-center justify-center rounded-full text-white shadow-glow transition-colors disabled:opacity-40',
+            liveStage === 'listening' ? 'bg-rose-600' : 'bg-neutral-700')}
+          title={liveStage === 'listening' ? 'Stop recording' : 'Start recording'}>
+          {liveStage === 'listening' ? <MicOff size={24} /> : <Mic size={24} />}
+        </button>
+
+        {/* Dedicated Submit Button */}
+        <button
+          onClick={() => submitAnswer()}
+          disabled={(!transcript && !typedAnswer) || liveStage === 'processing' || liveStage === 'ai-speaking'}
+          className="press flex h-14 items-center gap-2 rounded-full bg-brand-600 px-6 font-semibold text-white shadow-glow disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Send size={18} /> Submit
         </button>
 
         <button onClick={togglePause} className="press rounded-full border border-neutral-700 p-3 text-neutral-300 hover:text-white" title="Pause">

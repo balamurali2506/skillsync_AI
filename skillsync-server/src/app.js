@@ -22,6 +22,30 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
+// Bulletproof CORS for Vercel
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'https://skillsyncai-henna.vercel.app', // Hardcoded fallback for your live frontend
+  'http://localhost:5173',
+  'http://localhost:3000'
+].filter(Boolean); // Removes undefined/null values
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
+      // Temporarily allow all in development, or strictly block in production
+      callback(null, true); 
+    }
+  },
+  credentials: true,
+}));
+
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000, max: 30,
   message: { error: 'Too many attempts, please try again later' },

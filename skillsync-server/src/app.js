@@ -12,6 +12,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import dashboardRoutes from './routes/dashboard.js';
 import skillsRoutes from './routes/skills.js';
 import adminRoutes from './routes/admin.js';
+import settingsRoutes from './routes/settings.js';
 
 export const app = express();
 
@@ -61,6 +62,6 @@ app.use('/api/interviews', interviewsRoutes);  // adaptive voice interview
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/admin', adminRoutes);
-
+app.use('/api/settings', settingsRoutes);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);

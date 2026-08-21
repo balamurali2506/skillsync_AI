@@ -7,17 +7,31 @@ export async function start(req, res, next) {
     const { resumeContext, resumeId } = await buildContext(req.user._id, targetRole, jobDescription);
 
     const interview = await Interview.create({
-      user: req.user._id, targetRole, company, interviewType, mode, difficulty,
-      durationMinutes: durationMinutes || 15, jobDescription, resumeId, resumeContext,
-      status: 'active', startedAt: new Date()
+      user: req.user._id, 
+      targetRole, 
+      company, 
+      interviewType: interviewType || 'Mixed', 
+      mode: mode || 'MOCK_INTERVIEW', 
+      difficulty: difficulty || 'Medium',
+      durationMinutes: durationMinutes || 15, 
+      jobDescription, 
+      resumeId, 
+      resumeContext,
+      status: 'active', 
+      startedAt: new Date()
     });
 
-    const openingText = await generateOpening(interview, resumeContext);
+    // CRITICAL: Pass userId as FIRST argument
+    const openingText = await generateOpening(req.user._id, interview, resumeContext);
+    
     interview.messages.push({ speaker: 'ai', text: openingText, action: 'OPENING' });
     await interview.save();
 
     res.status(201).json({ interviewId: interview._id, openingText });
-  } catch (err) { next(err); }
+  } catch (err) { 
+    console.error('Start interview error:', err);
+    next(err); 
+  }
 }
 
 export async function respond(req, res, next) {

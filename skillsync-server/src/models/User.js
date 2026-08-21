@@ -28,6 +28,12 @@ const userSchema = new mongoose.Schema(
 
     streak:      { type: Number, default: 0 },
     lastActivity: Date,
+
+      aiPreferences: {
+    geminiKey: { type: String, default: '' },
+    // Hardcoded model so users never select deprecated models
+    model: { type: String, default: 'gemini-3.6-flash' } 
+  },
   },
   { timestamps: true }
 );

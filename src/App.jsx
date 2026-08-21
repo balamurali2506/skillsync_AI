@@ -14,6 +14,7 @@ import CareerChatbot from '@/pages/CareerChatbot';
 import Analytics from '@/pages/Analytics';
 import Achievements from '@/pages/Achievements';
 import Admin from '@/pages/Admin';
+import Settings from '@/pages/Settings';
 
 export default function App() {
   // Global auth state
@@ -57,12 +58,13 @@ export default function App() {
           <Route path="chat" element={<CareerChatbot />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="achievements" element={<Achievements />} />
-          
+          <Route path="/settings" element={<Settings />} />
           {/* ROLE PROTECTION: Only admins can access this route */}
           <Route path="admin" element={user?.role === 'admin' ? <Admin /> : <Navigate to="/" replace />} />
         </Route>
         
         <Route path="*" element={<Navigate to={authed ? '/' : '/login'} replace />} />
+        
       </Routes>
     </MotionConfig>
   );

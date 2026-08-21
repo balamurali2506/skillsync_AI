@@ -1,19 +1,19 @@
-import OpenAI from 'openai';
 import Resume from '../models/Resume.js';
 import Interview from '../models/Interview.js';
 import CodingActivity from '../models/CodingActivity.js';
 import Course from '../models/Course.js';
-
-const groq = process.env.GROQ_API_KEY ? new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: 'https://api.groq.com/openai/v1',
-}) : null;
+import { getAIClient } from './interviewEngine.js';
+import { GoogleGenerativeAI } from '@google/generative-ai'; 
 
 function safeJSONParse(content) {
-  try { return JSON.parse(content); }
-  catch {
-    try { return JSON.parse(content.replace(/```json/gi, '').replace(/```/g, '').trim()); }
-    catch { return null; }
+  try {
+    return JSON.parse(content);
+  } catch {
+    try {
+      return JSON.parse(content.replace(/```json/gi, '').replace(/```/g, '').trim());
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -27,6 +27,10 @@ const SKILL_CATEGORIES = {
   'CS Fundamentals': ['DSA', 'DBMS', 'Operating Systems', 'Computer Networks', 'OOP', 'System Design'],
   'Soft Skills': ['Communication', 'Leadership', 'Teamwork', 'Problem Solving', 'Presentation', 'Time Management']
 };
+
+// ============================================================
+// Main Skill Gap Analysis
+// ============================================================
 
 export async function analyzeSkillGap(userId, targetRole, jobDescription = '') {
   const [latestResume, interviews, codingActivities, courses] = await Promise.all([
@@ -50,7 +54,10 @@ export async function analyzeSkillGap(userId, targetRole, jobDescription = '') {
     jobDescription
   };
 
-  if (groq) {
+  const aiConfig = await getAIClient(userId);
+
+  if (aiConfig) {
+    const { client, model } = aiConfig;
     const prompt = `Analyze skill gaps for a ${targetRole} candidate.
 
 CONTEXT:
@@ -112,8 +119,8 @@ RULES:
 - Generate ordered roadmap with prerequisites`;
 
     try {
-      const response = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+      const response = await client.chat.completions.create({
+        model,
         temperature: 0.4,
         max_tokens: 3000,
         response_format: { type: 'json_object' },
@@ -122,9 +129,11 @@ RULES:
           { role: 'user', content: prompt }
         ]
       });
-      return safeJSONParse(response.choices[0].message.content);
+
+      const result = safeJSONParse(response.choices[0].message.content);
+      if (result) return result;
     } catch (err) {
-      console.error('Groq skill analysis failed:', err);
+      console.error('AI skill analysis failed:', err);
     }
   }
 
@@ -132,15 +141,81 @@ RULES:
   return generateFallbackAnalysis(context);
 }
 
+// ============================================================
+// Job Match Analysis
+// ============================================================
+
+export async function analyzeJobMatch(userId, jobDescription) {
+  if (!jobDescription?.trim()) return null;
+
+  const latestResume = await Resume.findOne({ user: userId }).sort({ createdAt: -1 });
+  const aiConfig = await getAIClient(userId);
+
+  if (aiConfig) {
+    const { client, model } = aiConfig;
+    const prompt = `Analyze job match.
+
+RESUME SKILLS: ${(latestResume?.extractedSkills || []).join(', ')}
+JOB DESCRIPTION: ${jobDescription.slice(0, 3000)}
+
+Return JSON:
+{
+  "overallMatch": 0-100,
+  "requiredSkills": [
+    {
+      "skill": "string",
+      "matched": true|false,
+      "importance": "CRITICAL|HIGH|MEDIUM|LOW"
+    }
+  ],
+  "matchedCount": number,
+  "missingCount": number,
+  "criticalMissing": ["array of critical missing skills"],
+  "recommendation": "string"
+}`;
+
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        temperature: 0.3,
+        max_tokens: 1500,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'Analyze job description match. Return only valid JSON.' },
+          { role: 'user', content: prompt }
+        ]
+      });
+
+      const result = safeJSONParse(response.choices[0].message.content);
+      if (result) return result;
+    } catch (err) {
+      console.error('Job match analysis failed:', err);
+    }
+  }
+
+  return {
+    overallMatch: 50,
+    requiredSkills: [],
+    matchedCount: 0,
+    missingCount: 0,
+    criticalMissing: [],
+    recommendation: 'Upload a resume and provide a job description for detailed analysis.'
+  };
+}
+
+// ============================================================
+// Fallback Analysis
+// ============================================================
+
 function generateFallbackAnalysis(context) {
   const have = new Set(context.extractedSkills.map(s => s.toLowerCase()));
   const allSkills = Object.values(SKILL_CATEGORIES).flat();
-  
+
   const skills = allSkills.map(skill => {
     const hasSkill = have.has(skill.toLowerCase());
     const level = hasSkill ? 3 : 0;
     const target = context.targetRole === 'Software Engineer' ? 4 : 3;
-    
+
     return {
       skill,
       category: Object.keys(SKILL_CATEGORIES).find(cat => SKILL_CATEGORIES[cat].includes(skill)),
@@ -170,59 +245,5 @@ function generateFallbackAnalysis(context) {
     ],
     overallMatch: Math.round((have.size / allSkills.length) * 100),
     aiInsight: 'Focus on building core technical skills first, then specialize based on your target role.'
-  };
-}
-
-export async function analyzeJobMatch(userId, jobDescription) {
-  if (!jobDescription?.trim()) return null;
-
-  const latestResume = await Resume.findOne({ user: userId }).sort({ createdAt: -1 });
-  
-  if (groq) {
-    const prompt = `Analyze job match.
-
-RESUME SKILLS: ${(latestResume?.extractedSkills || []).join(', ')}
-JOB DESCRIPTION: ${jobDescription.slice(0, 3000)}
-
-Return JSON:
-{
-  "overallMatch": 0-100,
-  "requiredSkills": [
-    {
-      "skill": "string",
-      "matched": true|false,
-      "importance": "CRITICAL|HIGH|MEDIUM|LOW"
-    }
-  ],
-  "matchedCount": number,
-  "missingCount": number,
-  "criticalMissing": ["array of critical missing skills"],
-  "recommendation": "string"
-}`;
-
-    try {
-      const response = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.3,
-        max_tokens: 1500,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'Analyze job description match. Return only valid JSON.' },
-          { role: 'user', content: prompt }
-        ]
-      });
-      return safeJSONParse(response.choices[0].message.content);
-    } catch (err) {
-      console.error('Job match analysis failed:', err);
-    }
-  }
-
-  return {
-    overallMatch: 50,
-    requiredSkills: [],
-    matchedCount: 0,
-    missingCount: 0,
-    criticalMissing: [],
-    recommendation: 'Upload a resume and provide a job description for detailed analysis.'
   };
 }

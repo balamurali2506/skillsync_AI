@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, LogOut, User, Settings, Menu } from 'lucide-react';
+import { Search, LogOut, User, Settings, Menu, KeyRound } from 'lucide-react';
 
 const MODULES = [
   { id: 'dashboard', label: 'Dashboard', path: '/' },
@@ -13,6 +13,7 @@ const MODULES = [
   { id: 'analytics', label: 'Analytics', path: '/analytics' },
   { id: 'achievements', label: 'Achievements', path: '/achievements' },
   { id: 'admin', label: 'Admin', path: '/admin' },
+  { id: 'settings', label: 'Settings & API Keys', path: '/settings' }, // Added to search
 ];
 
 export default function Topbar({ user, onLogout, onMenuToggle }) {
@@ -51,6 +52,7 @@ export default function Topbar({ user, onLogout, onMenuToggle }) {
     navigate(path);
     setQuery('');
     setShowSearch(false);
+    setShowMenu(false); // Close dropdown menu on navigation
   };
 
   return (
@@ -100,42 +102,60 @@ export default function Topbar({ user, onLogout, onMenuToggle }) {
         </div>
       </div>
 
-      {/* User Avatar & Dropdown Menu */}
-      <div className="relative" ref={menuRef}>
+      {/* Right Side Actions */}
+      <div className="flex items-center gap-3">
+        {/* Quick Settings / API Keys Button */}
         <button 
-          onClick={() => setShowMenu(!showMenu)}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-brand font-display text-micro font-bold text-white shadow-glow hover:scale-105 transition-transform"
+          onClick={() => handleNavigate('/settings')}
+          className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 transition-colors"
+          title="Settings & API Keys"
         >
-          {getInitials(user?.name, user?.email)}
+          <KeyRound size={18} />
         </button>
 
-        {showMenu && (
-          <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-neutral-800 bg-neutral-950 shadow-lift overflow-hidden z-50">
-            <div className="border-b border-neutral-800 px-4 py-3">
-              <p className="text-body font-semibold text-white truncate">{user?.name}</p>
-              <p className="text-caption text-neutral-500 truncate">{user?.email}</p>
-              <span className="mt-1 inline-block rounded-full bg-brand-500/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wider text-brand-400">
-                {user?.role || 'Student'}
-              </span>
+        {/* User Avatar & Dropdown Menu */}
+        <div className="relative" ref={menuRef}>
+          <button 
+            onClick={() => setShowMenu(!showMenu)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-brand font-display text-micro font-bold text-white shadow-glow hover:scale-105 transition-transform"
+          >
+            {getInitials(user?.name, user?.email)}
+          </button>
+
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-neutral-800 bg-neutral-950 shadow-lift overflow-hidden z-50">
+              <div className="border-b border-neutral-800 px-4 py-3">
+                <p className="text-body font-semibold text-white truncate">{user?.name}</p>
+                <p className="text-caption text-neutral-500 truncate">{user?.email}</p>
+                <span className="mt-1 inline-block rounded-full bg-brand-500/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wider text-brand-400">
+                  {user?.role || 'Student'}
+                </span>
+              </div>
+              <div className="py-2">
+                <button 
+                  onClick={() => handleNavigate('/')}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-body text-neutral-300 hover:bg-neutral-900 hover:text-white transition-colors text-left"
+                >
+                  <User size={16} /> Dashboard
+                </button>
+                <button 
+                  onClick={() => handleNavigate('/settings')}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-body text-neutral-300 hover:bg-neutral-900 hover:text-white transition-colors text-left"
+                >
+                  <Settings size={16} /> Settings & API Keys
+                </button>
+              </div>
+              <div className="border-t border-neutral-800 py-2">
+                <button 
+                  onClick={onLogout}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-body text-rose-400 hover:bg-rose-500/10 transition-colors text-left"
+                >
+                  <LogOut size={16} /> Log out
+                </button>
+              </div>
             </div>
-            <div className="py-2">
-              <button className="w-full flex items-center gap-3 px-4 py-2 text-body text-neutral-300 hover:bg-neutral-900 hover:text-white transition-colors text-left">
-                <User size={16} /> Profile
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-2 text-body text-neutral-300 hover:bg-neutral-900 hover:text-white transition-colors text-left">
-                <Settings size={16} /> Settings
-              </button>
-            </div>
-            <div className="border-t border-neutral-800 py-2">
-              <button 
-                onClick={onLogout}
-                className="w-full flex items-center gap-3 px-4 py-2 text-body text-rose-400 hover:bg-rose-500/10 transition-colors text-left"
-              >
-                <LogOut size={16} /> Log out
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

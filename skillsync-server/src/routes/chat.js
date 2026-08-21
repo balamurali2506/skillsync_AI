@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { verifyJWT } from '../middleware/auth.js';
-import { chat, history } from '../controllers/chatController.js';
+import { sendMessage, getHistory, clearHistory } from '../controllers/chatController.js';
 
 const router = Router();
 router.use(verifyJWT);
 
-router.post('/', chat);
-router.get('/history', history);
+router.post('/', sendMessage);
+router.get('/history', getHistory);
+router.delete('/history', clearHistory);
 
 export default router;
